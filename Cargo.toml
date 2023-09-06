@@ -1,0 +1,32 @@
+[package]
+name = "eterm-parser"
+version = "0.1.0"
+authors = ["The eterm-parser developers"]
+edition = "2021"
+license = "MIT"
+description = "eterm parser for Rust"
+repository = "https://github.com/bmrxntfj/eterm-parser"
+readme = "README.md"
+keywords = ["eterm", "parser", "flight"]
+categories = ["parser-implementations"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+regex = "1.7.3"
+anyhow = "1.0.72"
+
+[dev-dependencies]
+criterion = "0.4"
+
+[[bench]]
+name="parse"
+harness=false
+
+[profile.bench]
+# Useful for better disassembly when using `perf record` and `perf annotate`
+debug = true
+
+[profile.test]
+# Faster tests save much more than the increase in compilation time
+opt-level = 3
