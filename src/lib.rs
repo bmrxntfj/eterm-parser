@@ -1,8 +1,10 @@
-//! ETerm Parser
+//! eterm parser
 //! ==============
 //!
 //! This library contains text parser of the eterm common
 //! command such as av,detr,fd,ml,pat,rt,etc.
+//! 
+//! impl zero allocation and zero cost with lifetime and &str.
 //!
 //! [Docs](https://docs.rs/eterm-parser/) |
 //! [Github](https://github.com/bmrxntfj/eterm-parser/) |

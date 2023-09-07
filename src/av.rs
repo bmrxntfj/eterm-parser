@@ -9,7 +9,7 @@ pub struct Av<'a> {
     pub raw_text: &'a str,
 }
 
-/// The flights of an AV.
+/// The flights of an Av.
 #[derive(Default, Debug)]
 pub struct AvFlight<'a> {
     pub index: u8,
@@ -35,7 +35,7 @@ pub struct AvFlight<'a> {
     pub asr: bool,
 }
 
-/// The cabins of an AVFlight.
+/// The cabins of an AvFlight.
 #[derive(Default, Debug)]
 pub struct AvCabin<'a> {
     pub name: &'a str,
@@ -102,26 +102,6 @@ impl<'a> Av<'a> {
             raw_text: text,
             ..Default::default()
         };
-        // match text.find("\n1") {
-        //     Some(end) => {
-        //         let firstline = &text[0..end].trim();
-        //         let re = regex::Regex::new(
-        //             r"(?<DATE>\d{2}[A-Z]{3}(?:\d{2})?)\((?<WEEK>[A-Z]{3})\)[\x1D\s](?<ORG>[A-Z]{3})(?<DST>[A-Z]{3})(.*)",
-        //         )?;
-        //         match re.captures(firstline) {
-        //             Some(caps) => match (caps.name("DATE"), caps.name("ORG"), caps.name("DST")) {
-        //                 (Some(date), Some(org), Some(dst)) => {
-        //                     avinfo.date = Some(date.as_str());
-        //                     avinfo.dpt = Some(org.as_str());
-        //                     avinfo.arr = Some(dst.as_str());
-        //                 }
-        //                 _ => {}
-        //             },
-        //             _ => {}
-        //         }
-        //     }
-        //     _ => {}
-        // }
 
         let mut start = 0;
         let mut index = 1;
@@ -150,7 +130,7 @@ impl<'a> Av<'a> {
         Ok(avinfo)
     }
 
-    pub fn parse_query(text: &'a str, avinfo: &mut Av<'a>) -> anyhow::Result<()> {
+    fn parse_query(text: &'a str, avinfo: &mut Av<'a>) -> anyhow::Result<()> {
         match regex::Regex::new(
             r"(?<DATE>\d{2}[A-Z]{3}(?:\d{2})?)\(([A-Z]{3})\)[\x1D\s](?<DPT>[A-Z]{3})(?<ARR>[A-Z]{3})",
             )?
@@ -170,6 +150,7 @@ impl<'a> Av<'a> {
         Ok(())
     }
 
+    ///it easy to parse a text of flight of av specifically. 
     pub fn parse_flight(text: &'a str) -> anyhow::Result<AvFlight> {
         let mut flight = AvFlight {
             raw_text: text,
@@ -188,7 +169,7 @@ impl<'a> Av<'a> {
         Ok(flight)
     }
 
-    pub fn parse_first_flight(text: &'a str, flight: &mut AvFlight<'a>) -> anyhow::Result<()> {
+    fn parse_first_flight(text: &'a str, flight: &mut AvFlight<'a>) -> anyhow::Result<()> {
         for line in text.lines() {
             if regex::Regex::new(r"^\d").unwrap().is_match(line) {
                 if line.len() < 78 {
@@ -232,7 +213,7 @@ impl<'a> Av<'a> {
         Ok(())
     }
 
-    pub fn parse_union_flight(text: &'a str, flight: &AvFlight<'a>) -> anyhow::Result<AvFlight<'a>> {
+    fn parse_union_flight(text: &'a str, flight: &AvFlight<'a>) -> anyhow::Result<AvFlight<'a>> {
         //let mut raw_text=text.to_owned();
         //raw_text.insert_str(0, " ");
         //println!("{}",text);
@@ -288,6 +269,7 @@ impl<'a> Av<'a> {
         Ok(union_flight)
     }
 
+    ///it easy to parse a text of cabins of flight specifically. 
     pub fn parse_cabin(text: &'a str) -> Vec<AvCabin> {
         let is_sub_cabin = text.starts_with("**");
         if is_sub_cabin {
