@@ -1,11 +1,13 @@
+use crate::util;
+
 #[derive(Default, Debug)]
-pub struct PAT {
-    pub raw_text: String,
-    pub items: Option<Vec<PATItem>>,
+pub struct Pat<'a> {
+    pub raw_text: &'a str,
+    pub items: Option<Vec<PatItem<'a>>>,
 }
 
-impl PAT {
-    pub fn parse(text: &str) -> anyhow::Result<Self> {
+impl<'a> Pat<'a> {
+    pub fn parse(text: &'a str) -> anyhow::Result<Self> {
         if text.is_empty() {
             return Err(anyhow::Error::msg(
                 "pnr parameter shouldn't be empty.".to_owned(),
@@ -16,7 +18,7 @@ impl PAT {
         )?;
 
         let pat = Self {
-            raw_text: text.to_owned(),
+            raw_text: text,
             items: Some(
                 re.captures_iter(text)
                     .filter_map(|caps| {
@@ -28,14 +30,14 @@ impl PAT {
                             caps.name("YQ"),
                             caps.name("TOTAL"),
                         ) {
-                            (index, seatclass, fare, tax, yq, total) => Some(PATItem {
-                                index: crate::regex_extact_value::<u8>(index),
-                                seat_class: crate::regex_extact_text(seatclass),
-                                fare: fare.and_then(|x| PATPrice::parse(x.as_str()).ok()),
-                                tax: tax.and_then(|x| PATPrice::parse(x.as_str()).ok()),
-                                yq: yq.and_then(|x| PATPrice::parse(x.as_str()).ok()),
-                                total: crate::regex_extact_value::<f32>(total),
-                                raw_text: caps.get(0).and_then(|x| Some(x.as_str().to_owned())),
+                            (index, seatclass, fare, tax, yq, total) => Some(PatItem {
+                                index: util::regex_extact_value::<u8>(index),
+                                seat_class: seatclass.and_then(|x| Some(x.as_str().trim())), // crate::regex_extact_text(seatclass),
+                                fare: fare.and_then(|x| PatPrice::parse(x.as_str()).ok()),
+                                tax: tax.and_then(|x| PatPrice::parse(x.as_str()).ok()),
+                                yq: yq.and_then(|x| PatPrice::parse(x.as_str()).ok()),
+                                total: util::regex_extact_value::<f32>(total),
+                                raw_text: caps.get(0).and_then(|x| Some(x.as_str())),
                             }),
                         }
                     })
@@ -47,35 +49,36 @@ impl PAT {
 }
 
 #[derive(Default, Debug)]
-pub struct PATItem {
+pub struct PatItem<'a> {
     pub index: Option<u8>,
-    pub seat_class: Option<String>,
-    pub fare: Option<PATPrice>,
-    pub tax: Option<PATPrice>,
-    pub yq: Option<PATPrice>,
+    pub seat_class: Option<&'a str>,
+    pub fare: Option<PatPrice<'a>>,
+    pub tax: Option<PatPrice<'a>>,
+    pub yq: Option<PatPrice<'a>>,
     pub total: Option<f32>,
-    pub raw_text: Option<String>,
+    pub raw_text: Option<&'a str>,
 }
 
-#[derive(Default, Debug)]
-pub struct PATPrice {
-    pub currency: Option<String>,
+#[derive(Default, Debug, PartialEq)]
+pub struct PatPrice<'a> {
+    pub currency: Option<&'a str>,
     pub price: Option<f32>,
-    pub is_exemption: Option<bool>,
+    pub is_exemption: bool,
 }
 
-impl PATPrice {
-    pub fn parse(text: &str) -> anyhow::Result<Self> {
+impl<'a> PatPrice<'a> {
+    pub fn parse(text: &'a str) -> anyhow::Result<Self> {
         let mut pat_price = Self {
             ..Default::default()
         };
         let tx = text.trim();
         if tx.to_uppercase().starts_with("TEXEMPT") {
             pat_price.price = Some(0f32);
-            pat_price.is_exemption = Some(true);
+            pat_price.is_exemption = true;
         } else {
-            pat_price.currency = Some(tx[0..3].to_owned());
+            pat_price.currency = Some(&tx[0..3]);
             pat_price.price = tx[3..].parse::<f32>().ok();
+            pat_price.is_exemption = false;
         }
         Ok(pat_price)
     }

@@ -24,7 +24,7 @@ fn parse_av_benchmarks(c: &mut Criterion) {
 >   FM9530      KA LA NA RA SA VA TA GS ZA                          T2 T1 07:35";
 
     c.bench_function("parse_av", |b| {
-        b.iter(|| eterm_parser::av::AV::parse(black_box(text)).unwrap())
+        b.iter(|| eterm_parser::parse_av(black_box(text)).unwrap())
     });
 }
 
@@ -45,7 +45,7 @@ TAX:            CNY 60.00YQ|                                                   +
 ";
 
     c.bench_function("parse_detr", |b| {
-        b.iter(|| eterm_parser::detr::DETR::parse(black_box(text)).unwrap())
+        b.iter(|| eterm_parser::parse_detr(black_box(text)).unwrap())
     });
 }
 
@@ -70,7 +70,35 @@ fn parse_fd_benchmarks(c: &mut Criterion) {
 PAGE 1/1       /LPRIC/C52DZF3YARTGI11                                           ";
 
     c.bench_function("parse_fd", |b| {
-        b.iter(|| eterm_parser::fd::FD::parse(black_box(text)).unwrap())
+        b.iter(|| eterm_parser::parse_fd(black_box(text)).unwrap())
+    });
+}
+
+fn parse_ml_benchmarks(c: &mut Criterion) {
+    let text = r"MULTI                                                                           
+8L9681 /08SEP          C                                                        
+KHGNGQ                                                                          
+NIL                                                                             
+URCKHG                                                                          
+ 001   0DILIAYIAILI      HP3M9L T HX1  VVV211 07SEP      K    T                 
+ 002   1MEIHEREYIABULAI+ KYAH8R T RR1  VVV211 07SEP      K O ST                 
+URCNGQ                                                                          
+NIL                                                                             
+TOTAL NUMBER    1";
+
+    c.bench_function("parse_ml", |b| {
+        b.iter(|| eterm_parser::parse_ml(black_box(text)).unwrap())
+    });
+}
+
+fn parse_pat_benchmarks(c: &mut Criterion) {
+    let text = r">PAT:A                                                                          
+01 T FARE:CNY520.00 TAX:CNY50.00 YQ:CNY110.00  TOTAL:680.00                     
+SFC:01   SFN:01                                                               
+PAGE 1/1       /LPRIC/L3OF13GAATTP15";
+
+    c.bench_function("parse_pat", |b| {
+        b.iter(|| eterm_parser::parse_pat(black_box(text)).unwrap())
     });
 }
 
@@ -89,9 +117,9 @@ fn parse_pnr_benchmarks(c: &mut Criterion) {
 11.OSI JD ADT/8989198306575    ";
 
     c.bench_function("parse_pnr", |b| {
-        b.iter(|| eterm_parser::pnr::PNR::parse(black_box(text)).unwrap())
+        b.iter(|| eterm_parser::parse_pnr(black_box(text)).unwrap())
     });
 }
 
-criterion_group!(parse_bench, parse_av_benchmarks,parse_detr_benchmarks,parse_fd_benchmarks,parse_pnr_benchmarks);
+criterion_group!(parse_bench, parse_av_benchmarks,parse_detr_benchmarks,parse_fd_benchmarks,parse_ml_benchmarks,parse_pat_benchmarks,parse_pnr_benchmarks);
 criterion_main!(parse_bench);

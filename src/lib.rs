@@ -31,9 +31,9 @@
 //!    *MU8610  DS# J7 C7 D7 Q6 I4 YA BA MA EA HA     PVG 1545   1650   73E 0^   E  
 //! >   FM9530      KA LA NA RA SA VA TA GS ZA                          T2 T1 07:35";
 //! if let Ok(info) = eterm_parser::parse_av(text){
-//!     assert_eq!(info.dpt, Some("PKX".to_owned()));
-//!     assert_eq!(info.arr, Some("SHA".to_owned()));
-//!     assert_eq!(info.date, Some("03AUG".to_owned()));
+//!     assert_eq!(info.dpt, Some("PKX"));
+//!     assert_eq!(info.arr, Some("SHA"));
+//!     assert_eq!(info.date, Some("03AUG"));
 //! } else {
 //!     assert_eq!(true, false);
 //! }
@@ -62,7 +62,7 @@
 //!                                                                                 
 //! PAGE 1/1       /LPRIC/C52DZF3YARTGI11                                           ";
 //! if let Ok(info) = eterm_parser::parse_fd(text){
-//!     assert_eq!(info.org, Some("KMG".to_owned()));
+//!     assert_eq!(info.org, Some("KMG"));
 //! } else {
 //!     assert_eq!(true, false);
 //! }
@@ -70,6 +70,7 @@
 //!
 //!
 
+mod util;
 /// The module include text parser and result type of response of av command.
 pub mod av;
 /// The module include text parser and result type of response of detr command.
@@ -106,15 +107,15 @@ pub mod pnr;
 ///    *MU8610  DS# J7 C7 D7 Q6 I4 YA BA MA EA HA     PVG 1545   1650   73E 0^   E  
 /// >   FM9530      KA LA NA RA SA VA TA GS ZA                          T2 T1 07:35";
 /// if let Ok(info) = eterm_parser::parse_av(text){
-///     assert_eq!(info.dpt, Some("PKX".to_owned()));
-///     assert_eq!(info.arr, Some("SHA".to_owned()));
-///     assert_eq!(info.date, Some("03AUG".to_owned()));
+///     assert_eq!(info.dpt, Some("PKX"));
+///     assert_eq!(info.arr, Some("SHA"));
+///     assert_eq!(info.date, Some("03AUG"));
 /// } else {
 ///     assert_eq!(true, false);
 /// }
 /// ```
-pub fn parse_av(text: &str) -> anyhow::Result<av::AV> {
-    av::AV::parse(text)
+pub fn parse_av(text: &str) -> anyhow::Result<av::Av> {
+    av::Av::parse(text)
 }
 
 /// Parse detr text that eterm server response.
@@ -137,14 +138,14 @@ pub fn parse_av(text: &str) -> anyhow::Result<av::AV> {
 /// TAX:            CNY 60.00YQ|                                                   +
 /// ";
 /// if let Ok(info) = eterm_parser::parse_detr(text){
-///     assert_eq!(info.org, Some("HET".to_owned()));
-///     assert_eq!(info.dst, Some("SIA".to_owned()));
+///     assert_eq!(info.org, Some("HET"));
+///     assert_eq!(info.dst, Some("SIA"));
 /// } else {
 ///     assert_eq!(true, false);
 /// }
 /// ```
-pub fn parse_detr(text: &str) -> anyhow::Result<detr::DETR> {
-    detr::DETR::parse(text)
+pub fn parse_detr(text: &str) -> anyhow::Result<detr::Detr> {
+    detr::Detr::parse(text)
 }
 
 /// Parse pnr text that eterm server response.
@@ -165,13 +166,13 @@ pub fn parse_detr(text: &str) -> anyhow::Result<detr::DETR> {
 /// 10.OSI JD CTCM15718791505/P1                                                    
 /// 11.OSI JD ADT/8989198306575    ";
 /// if let Ok(info) = eterm_parser::parse_pnr(text){
-///     assert_eq!(info.pnr_code, Some("KE9SWE".to_owned()));
+///     assert_eq!(info.pnr_code, Some("KE9SWE"));
 /// } else {
 ///     assert_eq!(true, false);
 /// }
 /// ```
-pub fn parse_pnr(text: &str) -> anyhow::Result<pnr::PNR> {
-    pnr::PNR::parse(text)
+pub fn parse_pnr(text: &str) -> anyhow::Result<pnr::Pnr> {
+    pnr::Pnr::parse(text)
 }
 
 /// Parse ml text that eterm server response.
@@ -192,13 +193,13 @@ pub fn parse_pnr(text: &str) -> anyhow::Result<pnr::PNR> {
 /// 10.OSI JD CTCM15718791505/P1                                                    
 /// 11.OSI JD ADT/8989198306575    ";
 /// if let Ok(info) = eterm_parser::parse_ml(text){
-///     //assert_eq!(info.pnr_code, Some("KE9SWE".to_owned()));
+///     //assert_eq!(info.pnr_code, Some("KE9SWE"));
 /// } else {
 ///     //assert_eq!(true, false);
 /// }
 /// ```
-pub fn parse_ml(text: &str) -> anyhow::Result<ml::ML> {
-    ml::ML::parse(text)
+pub fn parse_ml(text: &str) -> anyhow::Result<ml::Ml> {
+    ml::Ml::parse(text)
 }
 
 /// Parse fd text that eterm server response.
@@ -225,13 +226,13 @@ pub fn parse_ml(text: &str) -> anyhow::Result<ml::ML> {
 ///                                                                                 
 /// PAGE 1/1       /LPRIC/C52DZF3YARTGI11                                           ";
 /// if let Ok(info) = eterm_parser::parse_fd(text){
-///     assert_eq!(info.org, Some("KMG".to_owned()));
+///     assert_eq!(info.org, Some("KMG"));
 /// } else {
 ///     assert_eq!(true, false);
 /// }
 /// ```
-pub fn parse_fd(text: &str) -> anyhow::Result<fd::FD> {
-    fd::FD::parse(text)
+pub fn parse_fd(text: &str) -> anyhow::Result<fd::Fd> {
+    fd::Fd::parse(text)
 }
 
 /// Parse pat text that eterm server response.
@@ -252,31 +253,11 @@ pub fn parse_fd(text: &str) -> anyhow::Result<fd::FD> {
 /// 10.OSI JD CTCM15718791505/P1                                                    
 /// 11.OSI JD ADT/8989198306575    ";
 /// if let Ok(info) = eterm_parser::parse_pat(text){
-///     //assert_eq!(info.pnr_code, Some("KE9SWE".to_owned()));
+///     //assert_eq!(info.pnr_code, Some("KE9SWE"));
 /// } else {
 ///     //assert_eq!(true, false);
 /// }
 /// ```
-pub fn parse_pat(text: &str) -> anyhow::Result<pat::PAT> {
-    pat::PAT::parse(text)
-}
-
-#[inline]
-fn regex_extact(pattern: &str, text: &str) -> anyhow::Result<Option<String>> {
-    let re = regex::Regex::new(pattern)?;
-    re.captures(&text).map_or(Ok(None), |caps| {
-        caps.get(1)
-            .map_or(Ok(None), |x| Ok(Some(x.as_str().trim().to_owned())))
-    })
-}
-
-#[inline]
-fn regex_extact_text(cap: Option<regex::Match<'_>>) -> Option<String> {
-    cap.and_then(|x| Some(x.as_str().trim().to_owned()))
-    //cap.map_or(None, |x| Some(x.as_str().trim().to_owned()))
-}
-
-#[inline]
-fn regex_extact_value<F: std::str::FromStr>(cap: Option<regex::Match<'_>>) -> Option<F> {
-    cap.and_then(|x| x.as_str().parse::<F>().ok())
+pub fn parse_pat(text: &str) -> anyhow::Result<pat::Pat> {
+    pat::Pat::parse(text)
 }

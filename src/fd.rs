@@ -1,18 +1,18 @@
 #[derive(Default, Debug)]
-pub struct FD {
-    pub org: Option<String>,
-    pub dst: Option<String>,
-    pub query_time: Option<String>,
-    pub airline: Option<String>,
-    pub command: Option<String>,
-    pub currency: Option<String>,
-    pub tpm: Option<String>,
-    pub items: Option<Vec<FDItem>>,
-    pub raw_text: String,
+pub struct Fd<'a> {
+    pub org: Option<&'a str>,
+    pub dst: Option<&'a str>,
+    pub query_time: Option<&'a str>,
+    pub airline: Option<&'a str>,
+    pub command: Option<&'a str>,
+    pub currency: Option<&'a str>,
+    pub tpm: Option<&'a str>,
+    pub items: Option<Vec<FdItem<'a>>>,
+    pub raw_text: &'a str,
 }
 
-impl FD {
-    pub fn parse(text: &str) -> anyhow::Result<Self> {
+impl<'a> Fd<'a> {
+    pub fn parse(text: &'a str) -> anyhow::Result<Self> {
         if text.is_empty() {
             return Err(anyhow::Error::msg(
                 "fd parameter shouldn't be empty.".to_owned(),
@@ -21,7 +21,7 @@ impl FD {
         let lines = text.split(&['\r', '\n']);
 
         let mut fdinfo = Self {
-            raw_text: text.to_owned(),
+            raw_text: text,
             ..Default::default()
         };
         for line in lines {
@@ -44,9 +44,9 @@ impl FD {
                         caps.name("TPM"),
                     ) {
                         (Some(command), Some(currency), tpm) => {
-                            fdinfo.command = Some(command.as_str().to_owned());
-                            fdinfo.currency = Some(currency.as_str().to_owned());
-                            fdinfo.tpm = crate::regex_extact_text(tpm);
+                            fdinfo.command = Some(command.as_str());
+                            fdinfo.currency = Some(currency.as_str());
+                            fdinfo.tpm =tpm.and_then(|x| Some(x.as_str().trim()));// crate::regex_extact_text(tpm);
 
                             match regex::Regex::captures(
                                 &regex::Regex::new(
@@ -61,10 +61,10 @@ impl FD {
                                     ccaps.name("AIRLINE"),
                                 ) {
                                     (Some(org), Some(dst), Some(querytime), airline) => {
-                                        fdinfo.org = Some(org.as_str().to_owned());
-                                        fdinfo.dst = Some(dst.as_str().to_owned());
-                                        fdinfo.query_time = Some(querytime.as_str().to_owned());
-                                        fdinfo.airline = crate::regex_extact_text(airline);
+                                        fdinfo.org = Some(org.as_str());
+                                        fdinfo.dst = Some(dst.as_str());
+                                        fdinfo.query_time = Some(querytime.as_str());
+                                        fdinfo.airline = airline.and_then(|x| Some(x.as_str().trim()));//crate::regex_extact_text(airline);
                                     }
                                     _ => {}
                                 },
@@ -76,31 +76,31 @@ impl FD {
                     _ => {}
                 }
             } else {
-                let mut item = FDItem {
+                let mut item = FdItem {
                     ..Default::default()
                 };
                 let mut arr = line.split('/');
                 let index_airline = arr.next();
                 item.index = index_airline.and_then(|x| x[0..3].parse::<u8>().ok());
-                item.carrier = index_airline.and_then(|x| Some(x[3..5].trim().to_owned()));
-                item.ticket_type = arr.next().and_then(|x| Some(x.trim().to_owned()));
+                item.carrier = index_airline.and_then(|x| Some(x[3..5].trim()));
+                item.ticket_type = arr.next().and_then(|x| Some(x.trim()));
                 if let Some(ow_rt_price) = arr.next() {
                     let mut ow_rt_price = ow_rt_price.split('=');
-                    item.ow_price_raw = ow_rt_price.next().and_then(|x| Some(x.trim().to_owned()));
-                    item.rt_price_raw = ow_rt_price.next().and_then(|x| Some(x.trim().to_owned()));
+                    item.ow_price_raw = ow_rt_price.next().and_then(|x| Some(x.trim()));
+                    item.rt_price_raw = ow_rt_price.next().and_then(|x| Some(x.trim()));
                 }
-                item.cabin = arr.next().and_then(|x| Some(x.trim().to_owned()));
-                item.class = arr.next().and_then(|x| Some(x.trim().to_owned()));
+                item.cabin = arr.next().and_then(|x| Some(x.trim()));
+                item.class = arr.next().and_then(|x| Some(x.trim()));
                 arr.next();
                 item.begin_date = arr.next().and_then(|x| {
                     if x == "." {
-                        fdinfo.query_time.to_owned()
+                        fdinfo.query_time
                     } else {
-                        Some(x.to_owned())
+                        Some(x)
                     }
                 });
-                item.end_date = arr.next().and_then(|x| Some(x.trim().to_owned()));
-                item.policy_no = arr.next().and_then(|x| Some(x[0..6].trim().to_owned()));
+                item.end_date = arr.next().and_then(|x| Some(x.trim()));
+                item.policy_no = arr.next().and_then(|x| Some(x[0..6].trim()));
 
                 if item.index == Some(0u8) {
                     continue;
@@ -111,7 +111,7 @@ impl FD {
                             if let Some(yfd) = fdinfo.items.as_ref().and_then(|x| {
                                 x.iter().find_map(|n| {
                                     if n.carrier == item.carrier
-                                        && n.cabin == Some("Y".to_owned())
+                                        && n.cabin == Some("Y")
                                         && n.ow_price.is_some()
                                     {
                                         n.ow_price
@@ -140,7 +140,7 @@ impl FD {
                             if let Some(yfd) = fdinfo.items.as_ref().and_then(|x| {
                                 x.iter().find_map(|n| {
                                     if n.carrier == item.carrier
-                                        && n.cabin == Some("Y".to_owned())
+                                        && n.cabin == Some("Y")
                                         && n.rt_price.is_some()
                                     {
                                         n.rt_price
@@ -176,17 +176,17 @@ impl FD {
 }
 
 #[derive(Default, Debug)]
-pub struct FDItem {
+pub struct FdItem<'a> {
     pub index: Option<u8>,
-    pub carrier: Option<String>,
-    pub ticket_type: Option<String>,
-    pub ow_price_raw: Option<String>,
+    pub carrier: Option<&'a str>,
+    pub ticket_type: Option<&'a str>,
+    pub ow_price_raw: Option<&'a str>,
     pub ow_price: Option<f32>,
-    pub rt_price_raw: Option<String>,
+    pub rt_price_raw: Option<&'a str>,
     pub rt_price: Option<f32>,
-    pub cabin: Option<String>,
-    pub class: Option<String>,
-    pub begin_date: Option<String>,
-    pub end_date: Option<String>,
-    pub policy_no: Option<String>,
+    pub cabin: Option<&'a str>,
+    pub class: Option<&'a str>,
+    pub begin_date: Option<&'a str>,
+    pub end_date: Option<&'a str>,
+    pub policy_no: Option<&'a str>,
 }

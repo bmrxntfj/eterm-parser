@@ -7,16 +7,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'eterm-parse'",
+            "name": "Debug unit tests in library 'eterm-parser'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
                     "--lib",
-                    "--package=eterm-parse"
+                    "--package=eterm-parser"
                 ],
                 "filter": {
-                    "name": "eterm-parse",
+                    "name": "eterm-parser",
                     "kind": "lib"
                 }
             },
@@ -32,7 +32,7 @@
                     "test",
                     "--no-run",
                     "--test=parse",
-                    "--package=eterm-parse"
+                    "--package=eterm-parser"
                 ],
                 "filter": {
                     "name": "parse",
@@ -51,7 +51,7 @@
                     "test",
                     "--no-run",
                     "--bench=parse",
-                    "--package=eterm-parse"
+                    "--package=eterm-parser"
                 ],
                 "filter": {
                     "name": "parse",

@@ -1,64 +1,54 @@
+use crate::util;
+
 /// The result that pnr text parsed.
 #[derive(Default, Debug)]
-pub struct PNR {
-    pub infos: Option<Vec<String>>,
-    pub ssr_items: Option<Vec<SSR>>,
-    pub osi_items: Option<Vec<OSI>>,
-    pub seg_items: Option<Vec<SEG>>,
-    pub nm_items: Option<Vec<NM>>,
-    pub rmk_items: Option<Vec<RMK>>,
-    pub other_items: Option<Vec<PnrItem>>,
+pub struct Pnr<'a> {
+    pub infos: Option<Vec<&'a str>>,
+    pub ssr_items: Option<Vec<SSR<'a>>>,
+    pub osi_items: Option<Vec<OSI<'a>>>,
+    pub seg_items: Option<Vec<SEG<'a>>>,
+    pub nm_items: Option<Vec<NM<'a>>>,
+    pub rmk_items: Option<Vec<RMK<'a>>>,
+    pub other_items: Option<Vec<OtherItem<'a>>>,
     pub is_ticket_pnr: Option<bool>,
     pub is_cancelled_pnr: Option<bool>,
     pub is_group_pnr: Option<bool>,
-    pub group_pnr_name: Option<String>,
+    pub group_pnr_name: Option<&'a str>,
     pub pax_count: Option<u8>,
-    pub pnr_code: Option<String>,
-    //pub raw_text: String,
-    pub bpnr_code: Option<String>,
+    pub pnr_code: Option<&'a str>,
+    pub bpnr_code: Option<&'a str>,
     pub has_married_segment: Option<bool>,
-    pub office_no: Option<String>,
+    pub office_no: Option<&'a str>,
 }
 
-impl PNR {
-    pub fn parse(text: &str) -> anyhow::Result<Self> {
+impl<'a> Pnr<'a> {
+    pub fn parse(text: &'a str) -> anyhow::Result<Self> {
         if text.is_empty() {
             return Err(anyhow::Error::msg(
                 "pnr parameter shouldn't be empty.".to_owned(),
             ));
         }
-        let mut is_ticket_pnr: Option<bool> = None;
-        let mut is_cancelled_pnr: Option<bool> = None;
-        let mut has_married_segment: Option<bool> = None;
+        let mut pnr = Self {
+            ..Default::default()
+        };
+
         let mut info_parsed = false;
-        let mut is_group_pnr: Option<bool> = None;
-        let mut group_pnr_name: Option<String> = None;
-        let mut pnr_code: Option<String> = None;
-        let mut pax_count: Option<u8> = None;
-        let mut infos: Option<Vec<String>> = None;
-        let mut seg_items: Option<Vec<SEG>> = None;
-        let mut nm_items: Option<Vec<NM>> = None;
-        let mut ssr_items: Option<Vec<SSR>> = None;
-        let mut osi_items: Option<Vec<OSI>> = None;
-        let mut rmk_items: Option<Vec<RMK>> = None;
-        let mut other_items: Option<Vec<PnrItem>> = None;
         let mut index = 0u8;
         for line in text.lines() {
-            
             if !info_parsed && line.starts_with(" 1.") {
                 info_parsed = true;
             }
             if !info_parsed {
                 if line.contains("**ELECTRONIC TICKET PNR**") {
-                    is_ticket_pnr = Some(true);
+                    pnr.is_ticket_pnr = Some(true);
                 }
                 if line.contains("*THIS PNR WAS ENTIRELY CANCELLED*") {
-                    is_cancelled_pnr = Some(true);
+                    pnr.is_cancelled_pnr = Some(true);
                 }
                 if line.contains("MARRIED SEGMENT EXIST IN THE PNR") {
-                    has_married_segment = Some(true);
+                    pnr.has_married_segment = Some(true);
                 }
-                infos.get_or_insert(Vec::new()).push(line.to_owned());
+                pnr.infos.get_or_insert(Vec::new()).push(line);
             } else {
                 match line.trim_start() {
                     x if x.starts_with("1.") => {
@@ -66,9 +56,9 @@ impl PNR {
                         match re.captures(line) {
                             Some(caps) => match (caps.name("NMS"), caps.name("PNRCODE")) {
                                 (Some(nms), Some(pnrcode)) => {
-                                    pnr_code = Some(pnrcode.as_str().to_owned());
+                                    pnr.pnr_code = Some(pnrcode.as_str());
                                     if let Ok(items) = NM::parse(index, nms.as_str()) {
-                                        nm_items = Some(items);
+                                        pnr.nm_items = Some(items);
                                     }
                                 }
                                 _ => {}
@@ -83,7 +73,7 @@ impl PNR {
                         x,
                     ) =>
                     {
-                        is_group_pnr = Some(true);
+                        pnr.is_group_pnr = Some(true);
                         if let Some(caps) = regex::Regex::captures(
                             &regex::Regex::new(
                                 r"(?<GROUPPNRNAME>.*)\s*NM(?<PAXCOUNT>\d+)\s+(?<PNRCODE>\w{6})/(\w{2})",
@@ -96,9 +86,9 @@ impl PNR {
                                 caps.name("PNRCODE"),
                             ) {
                                 (Some(pnr_groupname), Some(paxcount), Some(pnrcode)) => {
-                                    group_pnr_name = Some(pnr_groupname.as_str().to_owned());
-                                    pnr_code = Some(pnrcode.as_str().to_owned());
-                                    pax_count = paxcount.as_str().parse::<u8>().ok();
+                                    pnr.group_pnr_name = Some(pnr_groupname.as_str());
+                                    pnr.pnr_code = Some(pnrcode.as_str());
+                                    pnr.pax_count = paxcount.as_str().parse::<u8>().ok();
                                 }
                                 _ => {}
                             }
@@ -106,89 +96,70 @@ impl PNR {
                     }
                     x if x.starts_with(&format!("{}. ", index)) => {
                         if let Ok(item) = SEG::parse(index, line) {
-                            seg_items.get_or_insert(Vec::new()).push(item);
+                            pnr.seg_items.get_or_insert(Vec::new()).push(item);
                         }
                     }
                     x if x.starts_with(&format!("{}SSR", index)) => {
                         if let Ok(item) = SSR::parse(index, line) {
-                            ssr_items.get_or_insert(Vec::new()).push(item);
+                            pnr.ssr_items.get_or_insert(Vec::new()).push(item);
                         }
                     }
                     x if x.starts_with(&format!("{}OSI", index)) => {
                         if let Ok(item) = OSI::parse(index, line) {
-                            osi_items.get_or_insert(Vec::new()).push(item);
+                            pnr.osi_items.get_or_insert(Vec::new()).push(item);
                         }
                     }
                     x if x.starts_with(&format!("{}RMK", index)) => {
                         if let Ok(item) = RMK::parse(index, line) {
-                            rmk_items.get_or_insert(Vec::new()).push(item);
+                            pnr.rmk_items.get_or_insert(Vec::new()).push(item);
                         }
                     }
                     _ => {
-                        if let Ok(item) = PnrItem::parse(index, line) {
-                            other_items.get_or_insert(Vec::new()).push(item);
+                        if let Ok(item) = OtherItem::parse(index, line) {
+                            pnr.other_items.get_or_insert(Vec::new()).push(item);
                         }
                     }
                 }
             }
             index += 1;
         }
-        Self::fix_nm(&ssr_items, &mut nm_items);
-        if pax_count.is_none() {
-            pax_count = nm_items.as_ref().and_then(|x| Some(x.len() as u8));
+        Self::fix_nm(&mut pnr);
+        if pnr.pax_count.is_none() {
+            pnr.pax_count = pnr.nm_items.as_ref().and_then(|x| Some(x.len() as u8));
         }
-        let office_no = other_items.as_ref().and_then(|x| {
+        pnr.office_no = pnr.other_items.as_ref().and_then(|x| {
             x.iter().find_map(|n| {
-                if &n.item_type == "OFFICE" {
-                    Some(n.raw.trim().to_owned())
+                if n.item_type == "OFFICE" {
+                    Some(n.raw.trim())
                 } else {
                     None
                 }
             })
         });
-        let bpnr_code = rmk_items.as_ref().and_then(|x| {
+        pnr.bpnr_code = pnr.rmk_items.as_ref().and_then(|x| {
             x.iter().find_map(|n| {
-                if n.service_code.as_ref().is_some_and(|s| s == "CA") {
-                    n.text.as_ref().and_then(|k| Some(k[0..6].to_owned()))
+                if n.service_code.is_some_and(|s| s == "CA") {
+                    n.text.as_ref().and_then(|k| Some(&k[0..6]))
                 } else {
                     None
                 }
             })
         });
-        Ok(Self {
-            //raw_text,
-            infos,
-            is_ticket_pnr,
-            is_cancelled_pnr,
-            has_married_segment,
-            is_group_pnr,
-            group_pnr_name,
-            pnr_code,
-            seg_items,
-            nm_items,
-            ssr_items,
-            osi_items,
-            rmk_items,
-            other_items,
-            bpnr_code,
-            office_no,
-            pax_count,
-            ..Default::default()
-        })
+        Ok(pnr)
     }
 
     /// fill id info with ssr.
-    fn fix_nm(ssr_items: &Option<Vec<SSR>>, nm_items: &mut Option<Vec<NM>>) {
-        match (ssr_items, nm_items) {
+    fn fix_nm(pnr: &mut Pnr) {
+        match (&pnr.ssr_items, &mut pnr.nm_items) {
             (Some(ssrs), Some(nms)) => {
                 nms.iter_mut().for_each(|x| {
                     if let Some(ssr) = ssrs.iter().find(|s| {
                         s.passenger_index.is_some_and(|n| n == x.index)
-                            && s.service_code.as_ref().is_some_and(|n| n == "FOID")
+                            && s.service_code.is_some_and(|n| n == "FOID")
                     }) {
                         if let Some(tx) = &ssr.text {
-                            x.id_type = Some(tx[0..2].to_owned());
-                            x.id_number = Some(tx[2..].to_owned());
+                            x.id_type = Some(&tx[0..2]);
+                            x.id_number = Some(&tx[2..]);
                         }
                     }
                 });
@@ -200,14 +171,14 @@ impl PNR {
 
 /// This is a simple item, except NM,SSR,OSI,SEG,RMK, etc.
 #[derive(Default, Debug)]
-pub struct PnrItem {
+pub struct OtherItem<'a> {
     pub index: u8,
-    pub item_type: String,
-    pub raw: String,
+    pub item_type: &'a str,
+    pub raw: &'a str,
 }
 
-impl PnrItem {
-    pub fn parse(index: u8, raw: &str) -> anyhow::Result<Self> {
+impl<'a> OtherItem<'a> {
+    pub fn parse(index: u8, raw: &'a str) -> anyhow::Result<Self> {
         let item_type = match raw {
             x if x.starts_with(&format!("{}TL", index)) => "TL",
             x if x.starts_with(&format!("{}FN", index)) => "FN",
@@ -224,27 +195,26 @@ impl PnrItem {
         };
         Ok(Self {
             index,
-            item_type: item_type.to_owned(),
-            raw: raw.to_owned(),
+            item_type: item_type,
+            raw: raw,
         })
     }
 }
 
 /// The passenger infomation of pnr.
 #[derive(Default, Debug)]
-pub struct NM {
+pub struct NM<'a> {
     pub index: u8,
-    //item_type:Option<String>,
-    pub raw: String,
-    pub name: Option<String>,
+    pub raw: &'a str,
+    pub name: Option<&'a str>,
     //pub ssr_items: Option<Vec<SSR>>,
     //pub osi_items: Option<Vec<OSI>>,
-    pub id_number: Option<String>, //s.ServiceCode == "FOID")?.Text?.Substring(2);
-    pub id_type: Option<String>,   //s.ServiceCode == "FOID")?.Text?.Substring(0, 2);
+    pub id_number: Option<&'a str>,
+    pub id_type: Option<&'a str>,
 }
 
-impl NM {
-    pub fn parse(index: u8, raw: &str) -> anyhow::Result<Vec<Self>> {
+impl<'a> NM<'a> {
+    pub fn parse(index: u8, raw: &'a str) -> anyhow::Result<Vec<Self>> {
         let re = regex::Regex::new(r"(\d+\.)")?;
         let nms = re
             .split(raw)
@@ -253,8 +223,8 @@ impl NM {
                 x if x.ends_with(".") => None,
                 x => Some(Self {
                     index,
-                    raw: cap.trim().to_owned(),
-                    name: Some(x.to_owned()),
+                    raw: cap.trim(),
+                    name: Some(x),
                     ..Default::default()
                 }),
             })
@@ -265,24 +235,24 @@ impl NM {
 
 /// The flight segment infomation of pnr.
 #[derive(Default, Debug)]
-pub struct SEG {
+pub struct SEG<'a> {
     pub index: u8,
-    pub raw: String,
-    pub org: Option<String>,
-    pub dst: Option<String>,
-    pub seat_class: Option<String>,
-    pub flight_date: Option<String>,
-    pub takeoff: Option<String>,
-    pub landing: Option<String>,
+    pub raw: &'a str,
+    pub org: Option<&'a str>,
+    pub dst: Option<&'a str>,
+    pub seat_class: Option<&'a str>,
+    pub flight_date: Option<&'a str>,
+    pub takeoff: Option<&'a str>,
+    pub landing: Option<&'a str>,
     pub landing_addday: Option<u8>,
-    pub action_code: Option<String>,
+    pub action_code: Option<&'a str>,
     pub action_code_qty: Option<u8>,
-    pub flight_no: Option<String>,
+    pub flight_no: Option<&'a str>,
     pub is_share: Option<bool>,
 }
 
-impl SEG {
-    pub fn parse(index: u8, raw: &str) -> anyhow::Result<Self> {
+impl<'a> SEG<'a> {
+    pub fn parse(index: u8, raw: &'a str) -> anyhow::Result<Self> {
         let re = regex::Regex::new(
             r"(?<FLIGHTNO>\*?\w{5,6})\s+(?<SEATCLASS>[A-Z]\d?)\s+[A-Z]{2}(?<FLIGHTDATE>\d{2}[A-Z]{3}(?:\d{2})?)\s*(?<ORG>[A-Z]{3})(?<DST>[A-Z]{3})\s*(?<ACTIONCODE>[A-Z]{2})(?<ACTIONCODEQTY>\d{1,2})\s*(?<DEPTIME>\d{4})\s*(?<ARRTIME>\d{4})(?:\+(?<ADDDAY>\d))?",
         )?;
@@ -312,28 +282,28 @@ impl SEG {
                     addday,
                 ) => Ok(Self {
                     index,
-                    raw: raw.to_owned(),
-                    flight_no: Some(flight_no.as_str().to_owned()),
-                    seat_class: Some(seat_class.as_str().to_owned()),
-                    flight_date: Some(flight_date.as_str().to_owned()),
-                    org: Some(org.as_str().to_owned()),
-                    dst: Some(dst.as_str().to_owned()),
-                    action_code: Some(action_code.as_str().to_owned()),
+                    raw: raw,
+                    flight_no: Some(flight_no.as_str()),
+                    seat_class: Some(seat_class.as_str()),
+                    flight_date: Some(flight_date.as_str()),
+                    org: Some(org.as_str()),
+                    dst: Some(dst.as_str()),
+                    action_code: Some(action_code.as_str()),
                     action_code_qty: action_code_qty.as_str().parse::<u8>().ok(), // action_code_qty.and_then(|x|x.as_str().parse::<u8>().ok()),
-                    takeoff: Some(takeoff.as_str().to_owned()),
-                    landing: Some(landing.as_str().to_owned()),
-                    landing_addday: crate::regex_extact_value::<u8>(addday), // passenger_index.and_then(|x|x.as_str().parse::<u8>().ok()),
+                    takeoff: Some(takeoff.as_str()),
+                    landing: Some(landing.as_str()),
+                    landing_addday: util::regex_extact_value::<u8>(addday), // passenger_index.and_then(|x|x.as_str().parse::<u8>().ok()),
                     is_share: Some(flight_no.as_str().starts_with("*")),
                 }),
                 _ => Ok(Self {
                     index,
-                    raw: raw.to_owned(),
+                    raw: raw,
                     ..Default::default()
                 }),
             },
             _ => Ok(Self {
                 index,
-                raw: raw.to_owned(),
+                raw: raw,
                 ..Default::default()
             }),
         }
@@ -342,20 +312,20 @@ impl SEG {
 
 /// The ssr infomation of pnr.
 #[derive(Default, Debug)]
-pub struct SSR {
+pub struct SSR<'a> {
     pub index: u8,
-    pub raw: String,
-    pub service_code: Option<String>,
-    pub action_code: Option<String>,
+    pub raw: &'a str,
+    pub service_code: Option<&'a str>,
+    pub action_code: Option<&'a str>,
     pub action_code_qty: Option<u8>,
-    pub airline: Option<String>,
-    pub text: Option<String>,
+    pub airline: Option<&'a str>,
+    pub text: Option<&'a str>,
     pub passenger_index: Option<u8>,
     pub segment_index: Option<u8>,
 }
 
-impl SSR {
-    pub fn parse(index: u8, raw: &str) -> anyhow::Result<Self> {
+impl<'a> SSR<'a> {
+    pub fn parse(index: u8, raw: &'a str) -> anyhow::Result<Self> {
         let re = regex::Regex::new(
             r"SSR (?<SERVICECODE>[A-Z]+) (?<AIRLINE>\w{2}) (?:(?<ACTIONCODE>\w{2})(?<ACTIONCODEQTY>\d|/+)?\s+)?(?<TEXT>[^\r\n]*(?<!/P\d+)(?<!/S\d+))(/P(?<PASSENGERINDEX>\d+))?(/S(?<SEGMENTINDEX>\d+))?\s*$",
         )?;
@@ -379,24 +349,24 @@ impl SSR {
                     segment_index,
                 ) => Ok(Self {
                     index,
-                    raw: raw.to_owned(),
-                    service_code: Some(service_code.as_str().to_owned()),
-                    airline: Some(airline.as_str().to_owned()),
-                    action_code: action_code.map(|x| x.as_str().to_owned()),
-                    action_code_qty: crate::regex_extact_value::<u8>(action_code_qty),
-                    text: Some(text.as_str().to_owned()),
-                    passenger_index: crate::regex_extact_value::<u8>(passenger_index),
-                    segment_index: crate::regex_extact_value::<u8>(segment_index),
+                    raw: raw,
+                    service_code: Some(service_code.as_str()),
+                    airline: Some(airline.as_str()),
+                    action_code: action_code.map(|x| x.as_str()),
+                    action_code_qty: util::regex_extact_value::<u8>(action_code_qty),
+                    text: Some(text.as_str()),
+                    passenger_index: util::regex_extact_value::<u8>(passenger_index),
+                    segment_index: util::regex_extact_value::<u8>(segment_index),
                 }),
                 _ => Ok(Self {
                     index,
-                    raw: raw.to_owned(),
+                    raw: raw,
                     ..Default::default()
                 }),
             },
             _ => Ok(Self {
                 index,
-                raw: raw.to_owned(),
+                raw: raw,
                 ..Default::default()
             }),
         }
@@ -405,17 +375,17 @@ impl SSR {
 
 /// The osi infomation of pnr.
 #[derive(Default, Debug)]
-pub struct OSI {
+pub struct OSI<'a> {
     pub index: u8,
-    pub raw: String,
-    pub service_code: Option<String>,
-    pub airline: Option<String>,
-    pub text: Option<String>,
+    pub raw: &'a str,
+    pub service_code: Option<&'a str>,
+    pub airline: Option<&'a str>,
+    pub text: Option<&'a str>,
     pub passenger_index: Option<u8>,
 }
 
-impl OSI {
-    pub fn parse(index: u8, raw: &str) -> anyhow::Result<Self> {
+impl<'a> OSI<'a> {
+    pub fn parse(index: u8, raw: &'a str) -> anyhow::Result<Self> {
         let re = regex::Regex::new(
             r"OSI (?<AIRLINE>\w{2}) (?<SERVICECODE>[A-Z]+)?(?<TEXT>(.*(?<!/P\d+)))(/P(?<PASSENGERINDEX>\d+))?$",
         )?;
@@ -428,21 +398,21 @@ impl OSI {
             ) {
                 (Some(airline), Some(service_code), Some(text), passenger_index) => Ok(Self {
                     index,
-                    raw: raw.to_owned(),
-                    service_code: Some(service_code.as_str().to_owned()),
-                    airline: Some(airline.as_str().to_owned()),
-                    text: Some(text.as_str().to_owned()),
-                    passenger_index: crate::regex_extact_value::<u8>(passenger_index), // passenger_index.and_then(|x|x.as_str().parse::<u8>().ok()),
+                    raw: raw,
+                    service_code: Some(service_code.as_str()),
+                    airline: Some(airline.as_str()),
+                    text: Some(text.as_str()),
+                    passenger_index: util::regex_extact_value::<u8>(passenger_index), // passenger_index.and_then(|x|x.as_str().parse::<u8>().ok()),
                 }),
                 _ => Ok(Self {
                     index,
-                    raw: raw.to_owned(),
+                    raw: raw,
                     ..Default::default()
                 }),
             },
             _ => Ok(Self {
                 index,
-                raw: raw.to_owned(),
+                raw: raw,
                 ..Default::default()
             }),
         }
@@ -451,16 +421,16 @@ impl OSI {
 
 /// The remark infomation of pnr.
 #[derive(Default, Debug)]
-pub struct RMK {
+pub struct RMK<'a> {
     pub index: u8,
-    pub raw: String,
-    pub service_code: Option<String>,
-    pub text: Option<String>,
+    pub raw: &'a str,
+    pub service_code: Option<&'a str>,
+    pub text: Option<&'a str>,
     pub passenger_index: Option<u8>,
 }
 
-impl RMK {
-    pub fn parse(index: u8, raw: &str) -> anyhow::Result<Self> {
+impl<'a> RMK<'a> {
+    pub fn parse(index: u8, raw: &'a str) -> anyhow::Result<Self> {
         let re = regex::Regex::new(
             r"RMK[ :/](?<SERVICECODE>(MP|TJ AUTH|CA|CID|TID|EMAIL|1A|GMJC|RV|ORI))[ :/](?<TEXT>.*?)(/P(?<PASSENGERINDEX>\d))?$",
         )?;
@@ -472,20 +442,20 @@ impl RMK {
             ) {
                 (Some(service_code), text, passenger_index) => Ok(Self {
                     index,
-                    raw: raw.to_owned(),
-                    service_code: Some(service_code.as_str().to_owned()),
-                    text: crate::regex_extact_text(text),
-                    passenger_index: crate::regex_extact_value::<u8>(passenger_index), // passenger_index.and_then(|x|x.as_str().parse::<u8>().ok()),
+                    raw: raw,
+                    service_code: Some(service_code.as_str()),
+                    text: util::regex_extact_text(text),
+                    passenger_index: util::regex_extact_value::<u8>(passenger_index),
                 }),
                 _ => Ok(Self {
                     index,
-                    raw: raw.to_owned(),
+                    raw: raw,
                     ..Default::default()
                 }),
             },
             _ => Ok(Self {
                 index,
-                raw: raw.to_owned(),
+                raw: raw,
                 ..Default::default()
             }),
         }

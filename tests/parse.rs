@@ -18,12 +18,33 @@ fn parse_av_test() {
    *MU8610  DS# J7 C7 D7 Q6 I4 YA BA MA EA HA     PVG 1545   1650   73E 0^   E  
 >   FM9530      KA LA NA RA SA VA TA GS ZA                          T2 T1 07:35";
 
-    if let Ok(x) = eterm_parser::av::AV::parse(text) {
-        assert_eq!(x.dpt, Some("PKX".to_owned()));
-        assert_eq!(x.arr, Some("SHA".to_owned()));
-        assert_eq!(x.date, Some("03AUG".to_owned()));
+    if let Ok(av) = eterm_parser::parse_av(text) {
+        assert_eq!(av.dpt, Some("PKX"));
+        assert_eq!(av.arr, Some("SHA"));
+        assert_eq!(av.date, Some("03AUG"));
+        for flight in av.flights {
+            match flight.index {
+                1 => {
+                    assert_eq!(flight.flight_no, "KN6856");
+                    assert_eq!(flight.real_flight_no, Some("MU2104"));
+                    for union_flight in flight.union_flights {
+                        match union_flight.index {
+                            0 => {
+                                assert_eq!(union_flight.flight_no, "MU2159");
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                2 => {
+                    assert_eq!(flight.flight_no, "KN6856");
+                    assert_eq!(flight.real_flight_no, Some("MU2104"));
+                }
+                _ => {}
+            }
+        }
     } else {
-        assert_eq!(true, false);
+        panic!("av parse error");
     }
 }
 
@@ -44,20 +65,20 @@ TAX:               EXEMPTCN|OI:
 TAX:            CNY 60.00YQ|                                                   +
 ";
 
-    if let Ok(info) = eterm_parser::detr::DETR::parse(text) {
-        assert_eq!(info.org, Some("HET".to_owned()));
-        assert_eq!(info.dst, Some("SIA".to_owned()));
+    if let Ok(detr) = eterm_parser::parse_detr(text) {
+        assert_eq!(detr.org, Some("HET"));
+        assert_eq!(detr.dst, Some("SIA"));
         assert_eq!(
-            info.fare,
+            detr.fare,
             Some(eterm_parser::detr::DetrFareItem {
                 item_type: None,
                 amount: Some(308f32),
-                currency: Some("CNY".to_owned()),
+                currency: Some("CNY"),
                 is_exempt: false
             })
         );
     } else {
-        assert_eq!(true, false);
+        panic!("detr parse error");
     }
 }
 
@@ -81,13 +102,13 @@ fn parse_fd_test() {
 15 KY/E     /  730.00= 1460.00/E /Y/  /   .   /25DEC19        /J000  PFN:15    
                                                                                 
 PAGE 1/1       /LPRIC/C52DZF3YARTGI11                                           ";
-    if let Ok(x) = eterm_parser::fd::FD::parse(text) {
-        assert_eq!(x.org, Some("KMG".to_owned()));
-        if let Some(items) = x.items {
+    if let Ok(fd) = eterm_parser::parse_fd(text) {
+        assert_eq!(fd.org, Some("KMG"));
+        if let Some(items) = fd.items {
             for item in items {
                 match item.index {
                     Some(1) => {
-                        assert_eq!(item.ticket_type, Some("J".to_owned()));
+                        assert_eq!(item.ticket_type, Some("J"));
                     }
                     Some(2) => {
                         assert_eq!(item.ow_price, Some(1700.0f32));
@@ -95,14 +116,55 @@ PAGE 1/1       /LPRIC/C52DZF3YARTGI11                                           
                     Some(3) => {
                         assert_eq!(item.rt_price, Some(3400.0f32));
                     }
-                    _ => {
-                        panic!("fd parsed error.");
-                    }
+                    _ => {}
                 }
             }
         }
     } else {
-        assert_eq!(true, false);
+        panic!("fd parse error");
+    }
+}
+
+#[test]
+fn parse_ml_test() {
+    let text = r"MULTI                                                                           
+8L9681 /08SEP          C                                                        
+KHGNGQ                                                                          
+NIL                                                                             
+URCKHG                                                                          
+ 001   0DILIAYIAILI      HP3M9L T HX1  VVV211 07SEP      K    T                 
+ 002   1MEIHEREYIABULAI+ KYAH8R T RR1  VVV211 07SEP      K O ST                 
+URCNGQ                                                                          
+NIL                                                                             
+TOTAL NUMBER    1";
+    if let Ok(ml) = eterm_parser::parse_ml(text) {
+        assert_eq!(ml.flight_no, Some("8L9681"));
+    } else {
+        panic!("ml parse error");
+    }
+}
+
+#[test]
+fn parse_pat_test() {
+    let text = r">PAT:A                                                                          
+01 T FARE:CNY520.00 TAX:CNY50.00 YQ:CNY110.00  TOTAL:680.00                     
+SFC:01   SFN:01                                                               
+PAGE 1/1       /LPRIC/L3OF13GAATTP15";
+    if let Ok(pat) = eterm_parser::parse_pat(text) {
+        if let Some(items) = pat.items {
+            for item in items {
+                assert_eq!(
+                    item.fare,
+                    Some(eterm_parser::pat::PatPrice {
+                        currency: Some("CNY"),
+                        price: Some(520.0f32),
+                        is_exemption: false
+                    })
+                );
+            }
+        }
+    } else {
+        panic!("pat parse error");
     }
 }
 
@@ -120,33 +182,29 @@ fn parse_pnr_test() {
  9.OSI JD CTCT13320512490                                                       
 10.OSI JD CTCM15718791505/P1                                                    
 11.OSI JD ADT/8989198306575    ";
-    if let Ok(x) = eterm_parser::pnr::PNR::parse(text) {
-        assert_eq!(x.pnr_code, Some("KE9SWE".to_owned()));
-        if let Some(nms) = x.nm_items {
+    if let Ok(pnr) = eterm_parser::parse_pnr(text) {
+        assert_eq!(pnr.pnr_code, Some("KE9SWE"));
+        if let Some(nms) = pnr.nm_items {
             for nm in nms {
                 match nm.index {
                     1 => {
-                        assert_eq!(nm.name, Some("石风芸CHD".to_owned()));
+                        assert_eq!(nm.name, Some("石风芸CHD"));
                     }
-                    _ => {
-                        panic!("pnr parsed error.");
-                    }
+                    _ => {}
                 }
             }
         }
-        if let Some(segs) = x.seg_items {
+        if let Some(segs) = pnr.seg_items {
             for seg in segs {
                 match seg.index {
                     2 => {
-                        assert_eq!(seg.flight_no, Some("JD5324".to_owned()));
+                        assert_eq!(seg.flight_no, Some("JD5324"));
                     }
-                    _ => {
-                        panic!("pnr parsed error.");
-                    }
+                    _ => {}
                 }
             }
         }
     } else {
-        assert_eq!(true, false);
+        panic!("pnr parse error");
     }
 }
