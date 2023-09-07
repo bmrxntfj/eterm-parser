@@ -113,7 +113,7 @@ pub mod pnr;
 ///     assert_eq!(info.arr, Some("SHA"));
 ///     assert_eq!(info.date, Some("03AUG"));
 /// } else {
-///     assert_eq!(true, false);
+///     panic!("av parse error");
 /// }
 /// ```
 pub fn parse_av(text: &str) -> anyhow::Result<av::Av> {
@@ -143,65 +143,11 @@ pub fn parse_av(text: &str) -> anyhow::Result<av::Av> {
 ///     assert_eq!(info.org, Some("HET"));
 ///     assert_eq!(info.dst, Some("SIA"));
 /// } else {
-///     assert_eq!(true, false);
+///     panic!("detr parse error");
 /// }
 /// ```
 pub fn parse_detr(text: &str) -> anyhow::Result<detr::Detr> {
     detr::Detr::parse(text)
-}
-
-/// Parse pnr text that eterm server response.
-///
-/// # Examples
-///
-/// ```
-/// let text = r"  **ELECTRONIC TICKET PNR**                                                     
-///  1.石风芸CHD KE9SWE                                                             
-///  2.  JD5324 Y   WE06SEP  DXJPKX RR1   1045 1310          E                      
-///  3.KMG/T KMG/T 037968926796/KUNMING WKN TANG TRADING CO. LTD./ZHANGSAN      
-///  4.T                                                                            
-///  5.SSR FOID JD HK1 NI433101202105250023/P1                                      
-///  6.SSR ADTK 1E BY KMG28AUG23/1742 OR CXL JD5324 Y06SEP                          
-///  7.SSR TKNE JD HK1 DXJPKX 5324 Y06SEP 8989198306578/1/P1                        
-///  8.SSR CHLD JD HK1 25MAY21/P1                                                   
-///  9.OSI JD CTCT13320512490                                                       
-/// 10.OSI JD CTCM15718791505/P1                                                    
-/// 11.OSI JD ADT/8989198306575    ";
-/// if let Ok(info) = eterm_parser::parse_pnr(text){
-///     assert_eq!(info.pnr_code, Some("KE9SWE"));
-/// } else {
-///     assert_eq!(true, false);
-/// }
-/// ```
-pub fn parse_pnr(text: &str) -> anyhow::Result<pnr::Pnr> {
-    pnr::Pnr::parse(text)
-}
-
-/// Parse ml text that eterm server response.
-///
-/// # Examples
-///
-/// ```
-/// let text = r"  **ELECTRONIC TICKET PNR**                                                     
-/// 1.石风芸CHD KE9SWE                                                             
-/// 2.  JD5324 Y   WE06SEP  DXJPKX RR1   1045 1310          E                      
-/// 3.KMG/T KMG/T 037968926796/KUNMING WKN TANG TRADING CO. LTD./ZHANGSAN      
-/// 4.T                                                                            
-/// 5.SSR FOID JD HK1 NI433101202105250023/P1                                      
-/// 6.SSR ADTK 1E BY KMG28AUG23/1742 OR CXL JD5324 Y06SEP                          
-/// 7.SSR TKNE JD HK1 DXJPKX 5324 Y06SEP 8989198306578/1/P1                        
-/// 8.SSR CHLD JD HK1 25MAY21/P1                                                   
-/// 9.OSI JD CTCT13320512490                                                       
-/// 10.OSI JD CTCM15718791505/P1                                                    
-/// 11.OSI JD ADT/8989198306575    ";
-/// if let Ok(info) = eterm_parser::parse_ml(text){
-///     //assert_eq!(info.pnr_code, Some("KE9SWE"));
-/// } else {
-///     //assert_eq!(true, false);
-/// }
-/// ```
-pub fn parse_ml(text: &str) -> anyhow::Result<ml::Ml> {
-    ml::Ml::parse(text)
 }
 
 /// Parse fd text that eterm server response.
@@ -230,11 +176,36 @@ pub fn parse_ml(text: &str) -> anyhow::Result<ml::Ml> {
 /// if let Ok(info) = eterm_parser::parse_fd(text){
 ///     assert_eq!(info.org, Some("KMG"));
 /// } else {
-///     assert_eq!(true, false);
+///     panic!("fd parse error");
 /// }
 /// ```
 pub fn parse_fd(text: &str) -> anyhow::Result<fd::Fd> {
     fd::Fd::parse(text)
+}
+
+/// Parse ml text that eterm server response.
+///
+/// # Examples
+///
+/// ```
+/// let text = r"MULTI                                                                           
+/// 8L9681 /08SEP          C                                                        
+/// KHGNGQ                                                                          
+/// NIL                                                                             
+/// URCKHG                                                                          
+///  001   0DILIAYIAILI      HP3M9L T HX1  VVV211 07SEP      K    T                 
+///  002   1MEIHEREYIABULAI+ KYAH8R T RR1  VVV211 07SEP      K O ST                 
+/// URCNGQ                                                                          
+/// NIL                                                                             
+/// TOTAL NUMBER    1";
+/// if let Ok(ml) = eterm_parser::parse_ml(text) {
+///     assert_eq!(ml.flight_no, Some("8L9681"));
+/// } else {
+///     panic!("ml parse error");
+/// }
+/// ```
+pub fn parse_ml(text: &str) -> anyhow::Result<ml::Ml> {
+    ml::Ml::parse(text)
 }
 
 /// Parse pat text that eterm server response.
@@ -242,24 +213,54 @@ pub fn parse_fd(text: &str) -> anyhow::Result<fd::Fd> {
 /// # Examples
 ///
 /// ```
-/// let text = r"  **ELECTRONIC TICKET PNR**                                                     
-/// 1.石风芸CHD KE9SWE                                                             
-/// 2.  JD5324 Y   WE06SEP  DXJPKX RR1   1045 1310          E                      
-/// 3.KMG/T KMG/T 037968926796/KUNMING WKN TANG TRADING CO. LTD./ZHANGSAN      
-/// 4.T                                                                            
-/// 5.SSR FOID JD HK1 NI433101202105250023/P1                                      
-/// 6.SSR ADTK 1E BY KMG28AUG23/1742 OR CXL JD5324 Y06SEP                          
-/// 7.SSR TKNE JD HK1 DXJPKX 5324 Y06SEP 8989198306578/1/P1                        
-/// 8.SSR CHLD JD HK1 25MAY21/P1                                                   
-/// 9.OSI JD CTCT13320512490                                                       
-/// 10.OSI JD CTCM15718791505/P1                                                    
-/// 11.OSI JD ADT/8989198306575    ";
-/// if let Ok(info) = eterm_parser::parse_pat(text){
-///     //assert_eq!(info.pnr_code, Some("KE9SWE"));
+/// let text = r">PAT:A                                                                          
+/// 01 T FARE:CNY520.00 TAX:CNY50.00 YQ:CNY110.00  TOTAL:680.00                     
+/// SFC:01   SFN:01                                                               
+/// PAGE 1/1       /LPRIC/L3OF13GAATTP15";
+/// if let Ok(pat) = eterm_parser::parse_pat(text) {
+///     if let Some(items) = pat.items {
+///         for item in items {
+///             assert_eq!(
+///                 item.fare,
+///                 Some(eterm_parser::pat::PatPrice {
+///                     currency: Some("CNY"),
+///                     price: Some(520.0f32),
+///                     is_exemption: false
+///                 })
+///             );
+///         }
+///     }
 /// } else {
-///     //assert_eq!(true, false);
+///     panic!("pat parse error");
 /// }
 /// ```
 pub fn parse_pat(text: &str) -> anyhow::Result<pat::Pat> {
     pat::Pat::parse(text)
+}
+
+/// Parse pnr text that eterm server response.
+///
+/// # Examples
+///
+/// ```
+/// let text = r"  **ELECTRONIC TICKET PNR**                                                     
+///  1.石风芸CHD KE9SWE                                                             
+///  2.  JD5324 Y   WE06SEP  DXJPKX RR1   1045 1310          E                      
+///  3.KMG/T KMG/T 037968926796/KUNMING WKN TANG TRADING CO. LTD./ZHANGSAN      
+///  4.T                                                                            
+///  5.SSR FOID JD HK1 NI433101202105250023/P1                                      
+///  6.SSR ADTK 1E BY KMG28AUG23/1742 OR CXL JD5324 Y06SEP                          
+///  7.SSR TKNE JD HK1 DXJPKX 5324 Y06SEP 8989198306578/1/P1                        
+///  8.SSR CHLD JD HK1 25MAY21/P1                                                   
+///  9.OSI JD CTCT13320512490                                                       
+/// 10.OSI JD CTCM15718791505/P1                                                    
+/// 11.OSI JD ADT/8989198306575    ";
+/// if let Ok(info) = eterm_parser::parse_pnr(text){
+///     assert_eq!(info.pnr_code, Some("KE9SWE"));
+/// } else {
+///     panic!("pnr parse error");
+/// }
+/// ```
+pub fn parse_pnr(text: &str) -> anyhow::Result<pnr::Pnr> {
+    pnr::Pnr::parse(text)
 }
